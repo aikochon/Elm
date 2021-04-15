@@ -1,0 +1,102 @@
+module Main exposing (main)
+
+import Array exposing (Array)
+import Browser
+import Cmd.Extra
+import Html exposing (Html, button, div, text)
+import Html.Events exposing (onClick)
+import List.Extra
+import Random exposing (Generator)
+
+
+type alias Model =
+    Array Dice
+
+
+type Dice
+    = Dice Int
+
+
+newDice : Dice
+newDice =
+    Dice 0
+
+
+throwDice : Generator Dice
+throwDice =
+    Random.int 1 6 |> Random.map Dice
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( Array.empty, Cmd.none )
+
+
+type Msg
+    = NewDice
+    | Throw Int
+    | Done Int Dice
+    | ThrowAll
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        NewDice ->
+            ( Array.push newDice model, Cmd.none )
+
+        Throw n ->
+            ( model, Random.generate (Done n) throwDice )
+
+        Done n dice ->
+            ( Array.set n dice model, Cmd.none )
+
+        ThrowAll ->
+            let
+                toMsg : Int -> a -> Cmd Msg
+                toMsg n _ =
+                    Cmd.Extra.perform (Throw n)
+
+                listMsg : Array (Cmd Msg)
+                listMsg =
+                    Array.indexedMap toMsg model
+            in
+            ( model, Cmd.batch (Array.toList listMsg) )
+
+
+view : Model -> Html Msg
+view model =
+    let
+        toHtml i (Dice n) =
+            div []
+                [ text <| String.fromInt n
+                , button [ onClick <| Throw i ] [ text "throw" ]
+                ]
+    in
+    div []
+        [ button [ onClick NewDice ] [ text "add dice" ]
+        , button [ onClick ThrowAll ] [ text "throw all" ]
+
+        --, div [] (Array.toList (Array.indexedMap toHtml model))
+        --, div [] <| Array.toList(Array.indexedMap toHtml model)
+        --, div [] <| Array.toList
+        --<| Array.indexedMap toHtml model
+        , model
+            |> Array.indexedMap toHtml
+            |> Array.toList
+            |> div []
+
+        --Array.indexedMap toHtml model
+        --|> Array.toList
+        --|> div []
+        ]
+
+
+main : Program () Model Msg
+main =
+    Browser.element
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = always Sub.none
+        }
